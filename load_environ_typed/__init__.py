@@ -73,7 +73,15 @@ def load(
         field_loader = getattr(
             field_loader, 'load_environ_typed', field_loader)
 
-        field_value = field_loader(field_value_str)
+        try:
+            field_value = field_loader(field_value_str)
+        except ValueError as ex:
+            errors.append(
+                'ValueError for property'
+                f' {field_name} of type '
+                f'{field_type.__module__}.{field_type.__name__}: {str(ex)}'
+            )
+            continue
 
         args.append(field_value)
 

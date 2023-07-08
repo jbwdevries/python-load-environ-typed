@@ -28,3 +28,10 @@ python3 -m venv venv
 venv/bin/pip install -r requirements-dev.txt
 make test
 ```
+
+## Deploying
+
+```sh
+venv/bin/python -m build
+venv/bin/python -m twine upload dist/*
+```
