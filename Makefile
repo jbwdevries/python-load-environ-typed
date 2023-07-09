@@ -15,4 +15,4 @@ py-lint:
 	$(PYTHON) -m pycodestyle --ignore=E721 load_environ_typed test.py
 
 README.html: README.md
-	pandoc -f markdown -s --highlight-style pygments $^ -o $@
+	pandoc -f markdown -s --highlight-style pygments --metadata title="load-environ-typed README" $^ -o $@
