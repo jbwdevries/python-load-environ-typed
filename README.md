@@ -166,7 +166,7 @@ First, update pyproject.toml with the new version number, and commit that.
 Then:
 
 ```sh
-rm -f build/* # Clean old build files
+rm -f dist/* # Clean old build files
 venv/bin/python -m build
 venv/bin/python -m twine upload dist/*
 ```
