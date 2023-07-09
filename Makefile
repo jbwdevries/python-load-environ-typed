@@ -1,13 +1,18 @@
+PYTHON := venv/bin/python3
+
 test: py-typecheck py-unittest py-sast py-lint
 
 py-typecheck:
-	venv/bin/mypy --strict load_environ_typed test.py
+	$(PYTHON) -m mypy --strict load_environ_typed test.py
 
 py-unittest:
-	venv/bin/python3 test.py
+	$(PYTHON) test.py
 
 py-sast:
-	venv/bin/pyflakes load_environ_typed test.py
+	$(PYTHON) -m pyflakes load_environ_typed test.py
 
 py-lint:
-	venv/bin/pycodestyle load_environ_typed test.py
+	$(PYTHON) -m pycodestyle --ignore=E721 load_environ_typed test.py
+
+README.html: README.md
+	pandoc -f markdown -s --highlight-style pygments $^ -o $@

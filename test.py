@@ -1,7 +1,9 @@
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
+import datetime
+import sys
 import unittest
-from dataclasses import dataclass
+from dataclasses import dataclass, FrozenInstanceError
 from pathlib import Path
 
 import load_environ_typed as sut
@@ -98,6 +100,166 @@ class TestLoad(unittest.TestCase):
             'of type builtins.str',
             str(cm.exception))
 
+    def test_type_bool(self) -> None:
+        @dataclass
+        class EnvironType:
+            VAR: bool
+
+        test_valid_list = [
+            ('true', True),
+            ('True', True),
+            ('tRuE', True),
+
+            ('false', False),
+            ('False', False),
+            ('fAlSe', False),
+        ]
+
+        for (inp, out) in test_valid_list:
+            environ = sut.load(EnvironType, environ={'VAR': inp})
+            self.assertEqual(environ.VAR, out, f'"{inp}" should be {out}')
+
+        test_invalid_list = [
+            '0',
+            '1',
+            't',
+            'f',
+        ]
+
+        for inp in test_invalid_list:
+            with self.assertRaises(sut.LoadEnvironmentException,
+                                   msg=f'"{inp}" should not be valid'):
+                sut.load(EnvironType, environ={'VAR': inp})
+
+    def test_type_int(self) -> None:
+        @dataclass
+        class EnvironType:
+            VAR: int
+
+        test_valid_list = [
+            ('0', 0),
+            ('100', 100),
+            ('-100', -100),
+        ]
+
+        for (inp, out) in test_valid_list:
+            environ = sut.load(EnvironType, environ={'VAR': inp})
+            self.assertEqual(environ.VAR, out, f'"{inp}" should be {out}')
+
+        test_invalid_list = [
+            '+-123',
+            'three fiddy',
+            '0.234',
+        ]
+
+        for inp in test_invalid_list:
+            with self.assertRaises(sut.LoadEnvironmentException,
+                                   msg=f'"{inp}" should not be valid'):
+                sut.load(EnvironType, environ={'VAR': inp})
+
+    def test_type_str(self) -> None:
+        @dataclass
+        class EnvironType:
+            VAR: str
+
+        test_valid_list = [
+            ('0', '0'),
+            ('SOMEKEYTHATWORKS', 'SOMEKEYTHATWORKS'),
+            ('-100', '-100'),
+        ]
+
+        for (inp, out) in test_valid_list:
+            environ = sut.load(EnvironType, environ={'VAR': inp})
+            self.assertEqual(environ.VAR, out, f'"{inp}" should be {out}')
+
+    def test_type_date(self) -> None:
+        @dataclass
+        class EnvironType:
+            VAR: datetime.date
+
+        test_valid_list = [
+            ('2001-01-01', datetime.date(2001, 1, 1), ),
+            ('2010-10-10', datetime.date(2010, 10, 10), ),
+            ('2100-12-31', datetime.date(2100, 12, 31), ),
+        ]
+
+        for (inp, out) in test_valid_list:
+            environ = sut.load(EnvironType, environ={'VAR': inp})
+            self.assertEqual(environ.VAR, out, f'"{inp}" should be {out}')
+
+        test_invalid_list = [
+            '2023',
+            'bicycle',
+            'true',
+        ]
+
+        for inp in test_invalid_list:
+            with self.assertRaises(sut.LoadEnvironmentException,
+                                   msg=f'"{inp}" should not be valid'):
+                sut.load(EnvironType, environ={'VAR': inp})
+
+    def test_type_path(self) -> None:
+        @dataclass
+        class EnvironType:
+            VAR: Path
+
+        test_valid_list = [
+            ('/', Path('/'), ),
+            ('/etc/passwd', Path('/etc/passwd'), ),
+            ('/var/log/nginx', Path('/var/log/nginx'), ),
+        ]
+
+        for (inp, out) in test_valid_list:
+            environ = sut.load(EnvironType, environ={'VAR': inp})
+            self.assertEqual(environ.VAR, out, f'"{inp}" should be {out}')
+
+    def test_type_optional_str(self) -> None:
+        @dataclass
+        class EnvironType:
+            VAR: Optional[str]
+
+        environ = sut.load(EnvironType, environ={})
+        self.assertEqual(environ.VAR, None, 'No value given should be None')
+
+        test_valid_list = [
+            ('', None, ),
+            ('None', None, ),
+            ('none', None, ),
+            ('nOnE', None, ),
+            ('foo', 'foo', ),
+            ('baz', 'baz', ),
+        ]
+
+        for (inp, out) in test_valid_list:
+            environ = sut.load(EnvironType, environ={'VAR': inp})
+            self.assertEqual(environ.VAR, out, f'"{inp}" should be {out}')
+
+    def test_type_optional_with_default(self) -> None:
+        @dataclass
+        class EnvironType:
+            VAR: Optional[str] = 'default'
+
+        environ = sut.load(EnvironType, environ={})
+        self.assertEqual(environ.VAR, 'default')
+
+        environ = sut.load(EnvironType, environ={'VAR': 'none'})
+        self.assertEqual(environ.VAR, None)
+
+    def test_custom_loader(self) -> None:
+        # Example from README.md
+
+        @dataclass
+        class MyEnviron:
+            ISO_DATE: datetime.date
+
+        environ = sut.load(MyEnviron, environ={
+            'ISO_DATE': '2021-01-01',
+        }, loaders={
+            'ISO_DATE': datetime.date.fromisoformat,
+        })
+
+        self.assertEqual(datetime.date(2021, 1, 1), environ.ISO_DATE)
+
     def test_named_tuple(self) -> None:
         environ = sut.load(
             EnvironNt,
@@ -151,6 +313,30 @@ class TestLoad(unittest.TestCase):
         self.assertEqual(environ.DB_CA_FILE, Path('/foo/baz/ca.crt'))
         self.assertEqual(environ.AAA_SORT_TEST, 'zzz')
         self.assertEqual(environ.DC_PROP, 4)
+
+    def test_frozen(self) -> None:
+        @dataclass(frozen=True)
+        class FrozenEnviron:
+            DB_NAME: str
+
+        environ = sut.load(FrozenEnviron, environ={'DB_NAME': 'database'})
+
+        self.assertEqual(environ.DB_NAME, 'database')
+
+        with self.assertRaises(FrozenInstanceError):
+            # mypy already picks this up as an error
+            # So we have to ignore it since we want to make sure it works
+            environ.DB_NAME = 'tpk'  # type: ignore
+
+    @unittest.skipIf(sys.version_info < (3, 10), 'Python 3.10+ only')
+    def test_kw_only(self) -> None:
+        @dataclass(kw_only=True)  # type: ignore [call-overload,unused-ignore]
+        class FrozenEnviron:
+            DB_NAME: str
+
+        environ = sut.load(FrozenEnviron, environ={'DB_NAME': 'database'})
+
+        self.assertEqual(environ.DB_NAME, 'database')
 
 
 """
