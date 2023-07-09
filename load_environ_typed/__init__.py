@@ -32,18 +32,39 @@ DEFAULT_LOADERS = {
 }
 
 
+LoaderMap = Mapping[Union[str, Type[Any]], Callable[[str], Any]]
+NameConverter = Callable[[str], str]
+
+
 def load(
     type_: Type[T],
     *,
     environ: Optional[Mapping[str, str]] = None,
     defaults: Optional[Mapping[str, str]] = None,
-    loaders: Optional[Mapping[str, Callable[[str], Any]]] = None,
+    loaders: Optional[LoaderMap] = None,
     use_default_loaders: bool = True,
+    field_name_to_var_name: NameConverter = lambda x: x.upper(),
 ) -> T:
     """
     Loads the data from environ into the given class
 
-    If environ is none, use os.environ
+    If environ is none, use os.environ.
+
+    If a key is not in `environ`, check `defaults`, and if it's
+    not there, check the defaults on the type. Defaults is
+    expected to use the environment variable names, not the class
+    field names.
+
+    `loaders` are functions that take in a string from environ,
+    and return a class of the right type. There are a bunch of
+    default loaders (see DEFAULT_LOADERS) - you can disable these
+    via `use_default_loaders=False`.
+
+    The name of the class fields is also used as the environment
+    variable. However, Python uses lowercase by default, where
+    environment variables are uppercase by default, so we convert
+    lowercase into uppercase. If you have different rules or more
+    complicated rules, pass a function via `field_name_to_var_name`.
     """
     if environ is None:
         environ = dict(os.environ)
@@ -74,6 +95,8 @@ def load(
     errors: List[str] = []
 
     for field_name in field_name_list:
+        variable_name = field_name_to_var_name(field_name)
+
         field_type = type_.__annotations__[field_name]
         field_type, is_optional_type = check_optional(field_type)
 
@@ -89,10 +112,10 @@ def load(
                 field_loader = field_type
 
         try:
-            field_value_str = environ[field_name]
+            field_value_str = environ[variable_name]
         except KeyError:
             try:
-                field_value_str = defaults[field_name]
+                field_value_str = defaults[variable_name]
             except KeyError:
                 try:
                     field_value = typed_defaults[field_name]
@@ -102,8 +125,8 @@ def load(
                         kwargs[field_name] = None
                     else:
                         errors.append(
-                            'No value in environ for required property'
-                            f' {field_name} of type '
+                            'No value in environ for required field'
+                            f' {variable_name} of type '
                             f'{field_type.__module__}.{field_type.__name__}')
                 continue
 
@@ -118,8 +141,8 @@ def load(
             field_value = field_loader(field_value_str)
         except ValueError as ex:
             errors.append(
-                'ValueError for property'
-                f' {field_name} of type '
+                'ValueError for field'
+                f' {variable_name} of type '
                 f'{field_type.__module__}.{field_type.__name__}: {str(ex)}'
             )
             continue

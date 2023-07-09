@@ -57,7 +57,7 @@ class EnvironNt(NamedTuple):
     DB_CA_FILE: Path
     MQTT_PASSWORD: SecretFromFile
     AAA_SORT_TEST: str
-    NT_PROP: int = 4
+    NT_FIELD: int = 4
 
 
 """
@@ -74,7 +74,7 @@ class EnvironDc:
     DB_CA_FILE: Path
     MQTT_PASSWORD: SecretFromFile
     AAA_SORT_TEST: str
-    DC_PROP: int = 4
+    DC_FIELD: int = 4
 
 
 """
@@ -96,9 +96,32 @@ class TestLoad(unittest.TestCase):
             )
 
         self.assertIn(
-            'No value in environ for required property DB_NAME '
+            'No value in environ for required field DB_NAME '
             'of type builtins.str',
             str(cm.exception))
+
+    def test_field_name_cleanup(self) -> None:
+        @dataclass
+        class EnvironType:
+            var: bool
+
+        with self.assertRaises(sut.LoadEnvironmentException) as cm:
+            sut.load(EnvironType, environ={})
+
+        self.assertIn(
+            'No value in environ for required field VAR '
+            'of type builtins.bool',
+            str(cm.exception))
+
+        environ = sut.load(EnvironType, environ={'VAR': 'true'})
+        self.assertEqual(environ.var, True)
+
+        environ = sut.load(EnvironType, environ={}, defaults={'VAR': 'true'})
+        self.assertEqual(environ.var, True)
+
+        environ = sut.load(EnvironType, environ={'RAV': 'true'},
+                           field_name_to_var_name=lambda x: x[::-1].upper())
+        self.assertEqual(environ.var, True)
 
     def test_type_bool(self) -> None:
         @dataclass
@@ -245,7 +268,7 @@ class TestLoad(unittest.TestCase):
         environ = sut.load(EnvironType, environ={'VAR': 'none'})
         self.assertEqual(environ.VAR, None)
 
-    def test_custom_loader(self) -> None:
+    def test_custom_loader_key(self) -> None:
         # Example from README.md
 
         @dataclass
@@ -256,6 +279,21 @@ class TestLoad(unittest.TestCase):
             'ISO_DATE': '2021-01-01',
         }, loaders={
             'ISO_DATE': datetime.date.fromisoformat,
+        })
+
+        self.assertEqual(datetime.date(2021, 1, 1), environ.ISO_DATE)
+
+    def test_custom_loader_type(self) -> None:
+        # Example from README.md
+
+        @dataclass
+        class MyEnviron:
+            ISO_DATE: datetime.date
+
+        environ = sut.load(MyEnviron, environ={
+            'ISO_DATE': '2021-01-01',
+        }, loaders={
+            datetime.date: datetime.date.fromisoformat,
         })
 
         self.assertEqual(datetime.date(2021, 1, 1), environ.ISO_DATE)
@@ -285,7 +323,7 @@ class TestLoad(unittest.TestCase):
         self.assertEqual(environ.DB_USE_TRANSACTIONS, True)
         self.assertEqual(environ.DB_CA_FILE, Path('/foo/baz/ca.crt'))
         self.assertEqual(environ.AAA_SORT_TEST, 'zzz')
-        self.assertEqual(environ.NT_PROP, 4)
+        self.assertEqual(environ.NT_FIELD, 4)
 
     def test_data_class(self) -> None:
         environ = sut.load(
@@ -312,7 +350,7 @@ class TestLoad(unittest.TestCase):
         self.assertEqual(environ.DB_USE_TRANSACTIONS, True)
         self.assertEqual(environ.DB_CA_FILE, Path('/foo/baz/ca.crt'))
         self.assertEqual(environ.AAA_SORT_TEST, 'zzz')
-        self.assertEqual(environ.DC_PROP, 4)
+        self.assertEqual(environ.DC_FIELD, 4)
 
     def test_frozen(self) -> None:
         @dataclass(frozen=True)

@@ -13,8 +13,8 @@ from dataclasses import dataclass
 
 @dataclass
 class MyEnviron:
-	DB_HOST: str
-	DB_PORT: int
+	db_host: str
+	db_port: int
 
 environ = load(MyEnviron)
 ```
@@ -28,10 +28,27 @@ as type. Think of `int`, `str`, `float`, `pathlib.Path`, etc.
 
 We've added default loaders for the types below:
 
-- `bool` - "true", "FalSe"
+- `bool` - "true" or "false", case insenstive
 - `datetime.date` - Using `datetime.date.fromisoformat`
 - `datetime.time` - Using `datetime.time.fromisoformat`
 - `datetime.datetime` - Using `datetime.datetime.fromisoformat`
+
+### How are fields matched to enviroment variables?
+
+The loader assumes the names are the same, except that the class fields
+are lowercase, and the environment fields are uppercase. If you have
+different or more complicated rules, you can pass a name conversion
+function via `field_name_to_var_name`.
+
+```python
+@dataclass
+class MyEnviron:
+    iso_date: datetime.date
+
+environ = sut.load(MyEnviron, environ={
+    'ISO_DATE': '2021-01-01',
+})
+```
 
 ### Can values be optional?
 
@@ -45,15 +62,8 @@ class MyEnviron:
 
 However:
 
-- empty string and "none" count as `None`
+- empty string and "none" (case insensitive) count as `None`
 - defaults take precedence over optionality
-- this does not work for dataclass properties
-
-### Can I use Unions?
-
-You can, but you need to use a default loader, as you need some
-way to distinguish between the types, and there is no general
-way to do so, at least not without enforcing our way of working on you.
 
 ### What if my type cannot take a string in its constructor?
 
@@ -72,12 +82,18 @@ environ = sut.load(MyEnviron, environ={
     'ISO_DATE': '2021-01-01',
 }, loaders={
     'ISO_DATE': datetime.date.fromisoformat,
+    # or, if you want ALL `date`s to use this loader:
+    datetime.date: datetime.date.fromisoformat,
 })
-
-self.assertEqual(datetime.date(2021, 1, 1), environ.ISO_DATE)
 ```
 
 NOTE: date has a default loader, so you don't need to do this for `date`.
+
+### Can I use Unions?
+
+You can, but you need to use a default loader, as you need some
+way to distinguish between the types, and there is no general
+way to do so, at least not without enforcing our way of working on you.
 
 ### How do I work with default values?
 
@@ -92,15 +108,13 @@ class MyEnviron:
 	DB_PORT: int = 3306
 ```
 
-NOTE: `kw_only` requires Python3.10 or higher
-
 For most types, you can simply set the default value as you're used to
 with dataclasses. However, you may not want to instantiate an (expensive)
 property as default. In those cases, you can pass defaults along using
 the `defaults` argument.
 
 ```python
-@dataclass(kw_only=True)
+@dataclass
 class MyEnviron:
 	VAR: SomeExpensiveClass
 
@@ -108,6 +122,10 @@ environ = load(MyEnviron, defaults={
 	'VAR': '#!serialized.data!#',
 })
 ```
+
+*NOTE*: `kw_only` requires Python3.10 or higher. Below 3.10, you can use
+the `defaults` argument or order your variables. Similarly, if you plan
+on solely using the `defaults` argument, you don't need `kw_only`.
 
 ### Load returns an instance. What if I want a global?
 
@@ -143,7 +161,12 @@ make test
 
 ## Deploying
 
+First, update pyproject.toml with the new version number, and commit that.
+
+Then:
+
 ```sh
+rm -f build/* # Clean old build files
 venv/bin/python -m build
 venv/bin/python -m twine upload dist/*
 ```
