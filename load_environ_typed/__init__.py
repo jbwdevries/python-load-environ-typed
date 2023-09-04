@@ -1,7 +1,17 @@
 from typing import (
     Any, Callable, Dict, List, Mapping, Optional,
-    Tuple, Type, TypeVar, Union
+    Tuple, Type, TypeVar, Union,
+    get_type_hints,
 )
+
+try:
+    from types import UnionType  # type: ignore [attr-defined,unused-ignore]
+except ImportError:
+    class UnionType:  # type: ignore[no-redef]
+        """
+        Have some kind of class so the isinstance check works
+        for python versions below 3.10
+        """
 
 import dataclasses
 import datetime
@@ -94,10 +104,13 @@ def load(
 
     errors: List[str] = []
 
+    # Load the type annotations in case they are forward references
+    annotations = get_type_hints(type_)
+
     for field_name in field_name_list:
         variable_name = field_name_to_var_name(field_name)
 
-        field_type = type_.__annotations__[field_name]
+        field_type = annotations[field_name]
         field_type, is_optional_type = check_optional(field_type)
 
         try:
@@ -164,7 +177,8 @@ def check_optional(type_: Type[Any]) -> Tuple[Type[Any], bool]:
     if getattr(type_, '__origin__', None) is Optional:
         raise NotImplementedError('TODO')
 
-    if getattr(type_, '__origin__', None) is Union:
+    if (getattr(type_, '__origin__', None) is Union
+            or isinstance(type_, UnionType)):
         args = tuple(
             x
             for x in type_.__args__

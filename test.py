@@ -366,6 +366,25 @@ class TestLoad(unittest.TestCase):
             # So we have to ignore it since we want to make sure it works
             environ.DB_NAME = 'tpk'  # type: ignore
 
+    def test_forward_reference_annotation(self) -> None:
+        @dataclass
+        class FrozenEnviron:
+            DB_NAME: 'str'
+
+        environ = sut.load(FrozenEnviron, environ={'DB_NAME': 'database'})
+
+        self.assertEqual(environ.DB_NAME, 'database')
+
+    @unittest.skipIf(sys.version_info < (3, 10), 'Python 3.10+ only')
+    def test_pep_604(self) -> None:
+        @dataclass
+        class FrozenEnviron:
+            DB_NAME: 'str | None'
+
+        environ = sut.load(FrozenEnviron, environ={'DB_NAME': 'database'})
+
+        self.assertEqual(environ.DB_NAME, 'database')
+
     @unittest.skipIf(sys.version_info < (3, 10), 'Python 3.10+ only')
     def test_kw_only(self) -> None:
         @dataclass(kw_only=True)  # type: ignore [call-overload,unused-ignore]

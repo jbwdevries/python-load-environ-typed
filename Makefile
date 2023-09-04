@@ -12,7 +12,7 @@ py-sast:
 	$(PYTHON) -m pyflakes load_environ_typed test.py
 
 py-lint:
-	$(PYTHON) -m pycodestyle --ignore=E721 load_environ_typed test.py
+	$(PYTHON) -m pycodestyle --ignore=E721,W503 load_environ_typed test.py
 
 README.html: README.md
 	pandoc -f markdown -s --highlight-style pygments --metadata title="load-environ-typed README" $^ -o $@
