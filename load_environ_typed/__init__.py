@@ -164,7 +164,8 @@ def check_optional(type_: Type[Any]) -> Tuple[Type[Any], bool]:
     if getattr(type_, '__origin__', None) is Optional:
         raise NotImplementedError('TODO')
 
-    if getattr(type_, '__origin__', None) is Union:
+    if ((getattr(type_, '__origin__', None) is Union)
+            or 'types.UnionType' in str(type(type_))):
         args = tuple(
             x
             for x in type_.__args__
