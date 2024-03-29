@@ -1,5 +1,7 @@
 /dist
+/htmlcov
 /venv
+/.coverage
 /README.html
 
 __pycache__
