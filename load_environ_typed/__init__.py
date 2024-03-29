@@ -153,10 +153,17 @@ def load(
         try:
             field_value = field_loader(field_value_str)
         except ValueError as ex:
+            # Haven't found a built-in way to stringize a type yet
+            if field_type.__module__ == 'typing':
+                field_type_str = str(field_type)
+            else:
+                field_type_str = (
+                    f'{field_type.__module__}.{field_type.__name__}'
+                )
+
             errors.append(
-                'ValueError for field'
-                f' {variable_name} of type '
-                f'{field_type.__module__}.{field_type.__name__}: {str(ex)}'
+                f'ValueError for field {variable_name}'
+                f' of type {field_type_str}: {str(ex)}'
             )
             continue
 
