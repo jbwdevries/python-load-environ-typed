@@ -1,9 +1,10 @@
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import csv
 from pathlib import Path
 
 from load_environ_typed import load_bool
+from load_environ_typed import _logfmt
 
 
 def load_bool_or_int(raw: str) -> Union[bool, int]:
@@ -78,6 +79,15 @@ def load_list_str(raw: str) -> List[str]:
     )
 
     return next(rdr)
+
+
+def load_dict_str_str(raw: str) -> Dict[str, str]:
+    """
+    Returns a mapping from string to string
+
+    Configuring this in the environment means using logfmt
+    """
+    return _logfmt.parse_line(raw)
 
 
 def load_binary_file_from_path(raw: str) -> bytes:
