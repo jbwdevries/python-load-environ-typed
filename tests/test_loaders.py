@@ -59,6 +59,11 @@ class TestLoaders(unittest.TestCase):
             sut.load_dict_str_str('a=1  b=9'),
         )
 
+        self.assertEqual(
+            {'a-b_c-d': '1', 'e-f-': '9', '00123': '32'},
+            sut.load_dict_str_str('a-b_c-d=1 e-f-=9 00123=32'),
+        )
+
     def test_load_binary_file_from_path_not_found(self) -> None:
         with self.assertRaises(ValueError) as cm:
             sut.load_binary_file_from_path('./file-not-found.404')

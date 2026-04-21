@@ -36,7 +36,9 @@ def parse_line(line: str) -> Dict[str, str]:
             raise ValueError(f'Unexpected {c} at {i}')
 
         if state == KEY:
-            if '0' <= c <= '9' or 'A' <= c <= 'Z' or 'a' <= c <= 'z':
+            if (
+                    '0' <= c <= '9' or 'A' <= c <= 'Z' or 'a' <= c <= 'z'
+                    or c == '-' or c == '_'):
                 key += c
                 continue
 
